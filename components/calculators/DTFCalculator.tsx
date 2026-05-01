@@ -1,62 +1,79 @@
 "use client";
 import { useState, useMemo } from "react";
-import { TEXTIL, formatMXN, IVA, ANTICIPO } from "@/lib/precios";
-import { Info, AlertCircle, ArrowRight } from "lucide-react";
+import { formatMXN, IVA, ANTICIPO } from "@/lib/precios";
+import { Info, AlertCircle, ArrowRight, CheckCircle2 } from "lucide-react";
+
+const ANCHO_ROLLO = 0.58; // 58cm fijo
 
 const DTF_TIPOS = [
-  { id: "dtf-normal",  label: "DTF Normal",         desc: "Transfer estándar para textil", precio: 180, unidad: "m²" },
-  { id: "dtf-premium", label: "DTF Premium",         desc: "Transfer de alta definición",   precio: 290, unidad: "m²" },
-  { id: "dtf-uv-1",    label: "DTF UV — Primer metro", desc: "Impresión directa UV, primer metro", precio: 600, unidad: "metro" },
-  { id: "dtf-uv-05",   label: "DTF UV — Medio metro", desc: "Impresión directa UV, medio metro",   precio: 300, unidad: "metro" },
+  { id: "normal",   label: "DTF Normal",   desc: "Transfer estándar para textil",         precio: 180, porMetro: true,  minMetro: 1,   uvMode: false },
+  { id: "premium",  label: "DTF Premium",  desc: "Transfer de alta definición",            precio: 290, porMetro: true,  minMetro: 1,   uvMode: false },
+  { id: "uv",       label: "DTF UV",       desc: "Impresión directa UV — mínimo 0.5m",    precio: 600, porMetro: false, minMetro: 0.5, uvMode: true  },
 ];
 
 const PLANCHADO = [
-  { id: "pl-gde",  label: "Planchado Grande",   precio: 20 },
-  { id: "pl-chi",  label: "Planchado Chico",     precio: 15 },
-  { id: "pl-gor",  label: "Planchado Gorra",     precio: 10 },
-  { id: "pl-eti",  label: "Planchado Etiqueta",  precio: 5  },
+  { id: "gde", label: "Grande",   precio: 20 },
+  { id: "chi", label: "Chico",    precio: 15 },
+  { id: "gor", label: "Gorra",    precio: 10 },
+  { id: "eti", label: "Etiqueta", precio: 5  },
 ];
 
+function calcMetrosCobrados(metros: number, uvMode: boolean): number {
+  if (uvMode) {
+    // Mínimo 0.5m, fracciones desde 0.5m
+    if (metros <= 0) return 0;
+    if (metros <= 0.5) return 0.5;
+    return metros; // fracción exacta
+  } else {
+    // Mínimo 1m, menos de 1m se cobra como 1m
+    if (metros <= 0) return 0;
+    if (metros < 1) return 1;
+    return metros; // fracción exacta
+  }
+}
+
 export default function DTFCalculator() {
-  const [tipo,     setTipo]     = useState("dtf-normal");
-  const [ancho,    setAncho]    = useState("0.5");
-  const [largo,    setLargo]    = useState("1");
-  const [qty,      setQty]      = useState("1");
+  const [tipo,      setTipo]      = useState("normal");
+  const [metros,    setMetros]    = useState("1");
+  const [qty,       setQty]       = useState("1");
   const [planchado, setPlanchado] = useState("");
-  const [qtyPl,    setQtyPl]    = useState("1");
+  const [qtyPl,     setQtyPl]     = useState("1");
 
   const t = DTF_TIPOS.find(d => d.id === tipo)!;
-  const isUV = tipo.startsWith("dtf-uv");
 
   const cal = useMemo(() => {
-    const q  = parseInt(qty)       || 1;
-    const qp = parseInt(qtyPl)     || 0;
-    const w  = parseFloat(ancho)   || 0;
-    const l  = parseFloat(largo)   || 0;
+    const m  = parseFloat(metros) || 0;
+    const q  = parseInt(qty)      || 1;
+    const qp = parseInt(qtyPl)    || 0;
+    if (!m) return null;
 
-    let unitDTF = 0;
-    if (isUV) {
-      unitDTF = t.precio; // precio fijo por metro o medio metro
-    } else {
-      const area = w * l;
-      unitDTF = area * t.precio;
-    }
+    const metrosCobrados = calcMetrosCobrados(m, t.uvMode);
+    const precioUnitario = t.uvMode
+      ? metrosCobrados <= 0.5 ? 300 : t.precio * metrosCobrados  // medio metro = $300, más = $600/m
+      : t.precio * metrosCobrados;
 
-    const subDTF = unitDTF * q;
+    const subDTF = precioUnitario * q;
     const pl     = PLANCHADO.find(p => p.id === planchado);
     const subPl  = pl && qp > 0 ? pl.precio * qp : 0;
     const sub    = subDTF + subPl;
     const iva    = sub * IVA;
     const total  = sub + iva;
 
-    return { q, w, l, unitDTF, subDTF, subPl, sub, iva, total, anticipo: total * ANTICIPO, pl };
-  }, [tipo, ancho, largo, qty, planchado, qtyPl, isUV, t]);
+    const redondeo = m !== metrosCobrados;
+
+    return {
+      m, metrosCobrados, q, precioUnitario, subDTF, subPl,
+      sub, iva, total, anticipo: total * ANTICIPO,
+      redondeo, pl,
+      areaCm: (ANCHO_ROLLO * metrosCobrados * 100).toFixed(1),
+    };
+  }, [tipo, metros, qty, planchado, qtyPl, t]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-0.5 bg-[#E0E0E0] max-w-6xl">
       <div className="lg:col-span-3 bg-white p-8 md:p-10 flex flex-col gap-8">
 
-        {/* Tipo DTF */}
+        {/* Tipo */}
         <div>
           <h3 className="text-[10px] font-medium tracking-[0.15em] uppercase text-[#6B6B6B] mb-4">1. Tipo de DTF</h3>
           <div className="flex flex-col gap-2">
@@ -67,45 +84,67 @@ export default function DTFCalculator() {
                   <p className="text-sm font-medium text-[#111]">{d.label}</p>
                   <p className="text-xs font-light text-[#6B6B6B] mt-0.5">{d.desc}</p>
                 </div>
-                <span className="text-sm font-medium text-[#CC0055] shrink-0 ml-4">{formatMXN(d.precio)}/{d.unidad}</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium text-[#CC0055] shrink-0">
+                    {d.uvMode ? `${formatMXN(300)}/0.5m · ${formatMXN(d.precio)}/m` : `${formatMXN(d.precio)}/m`}
+                  </span>
+                  {tipo===d.id && <CheckCircle2 size={16} className="text-[#CC0055]"/>}
+                </div>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Medidas / cantidad */}
+        {/* Metros */}
         <div>
-          <h3 className="text-[10px] font-medium tracking-[0.15em] uppercase text-[#6B6B6B] mb-4">2. {isUV ? "Cantidad de metros" : "Medidas"}</h3>
-          {isUV ? (
-            <div className="max-w-[200px]">
+          <h3 className="text-[10px] font-medium tracking-[0.15em] uppercase text-[#6B6B6B] mb-4">2. Metros lineales</h3>
+          <div className="grid grid-cols-2 gap-4 max-w-xs">
+            <div>
+              <label className="text-sm font-medium text-[#111] block mb-2">Metros</label>
+              <div className="flex items-center border border-[#E0E0E0] rounded focus-within:border-[#CC0055] transition-colors">
+                <input type="number" value={metros} onChange={e=>setMetros(e.target.value)}
+                  min={t.uvMode?"0.5":"0.1"} step="0.1"
+                  className="flex-1 px-4 py-3 text-base font-light outline-none bg-transparent w-20"/>
+                <span className="pr-3 text-sm text-[#6B6B6B]">m</span>
+              </div>
+            </div>
+            <div>
               <label className="text-sm font-medium text-[#111] block mb-2">Cantidad</label>
               <div className="flex items-center border border-[#E0E0E0] rounded focus-within:border-[#CC0055] transition-colors">
                 <input type="number" value={qty} onChange={e=>setQty(e.target.value)} min="1" step="1"
-                  className="flex-1 px-4 py-3 text-base font-light outline-none bg-transparent"/>
-                <span className="pr-4 text-sm text-[#6B6B6B]">metros</span>
+                  className="flex-1 px-4 py-3 text-base font-light outline-none bg-transparent w-20"/>
+                <span className="pr-3 text-sm text-[#6B6B6B]">pzas</span>
               </div>
             </div>
-          ) : (
-            <div className="grid grid-cols-3 gap-4">
-              {([["Ancho",ancho,setAncho],["Largo",largo,setLargo],["Cantidad",qty,setQty]] as [string,string,(s:string)=>void][]).map(([l,v,fn],i)=>(
-                <div key={l}>
-                  <label className="text-sm font-medium text-[#111] block mb-2">{l}</label>
-                  <div className="flex items-center border border-[#E0E0E0] rounded focus-within:border-[#CC0055] transition-colors">
-                    <input type="number" value={v} onChange={e=>fn(e.target.value)} min="0.01" step={i===2?"1":"0.01"}
-                      className="flex-1 px-4 py-3 text-base font-light outline-none bg-transparent w-20"/>
-                    <span className="pr-3 text-sm text-[#6B6B6B]">{i===2?"pzas":"m"}</span>
-                  </div>
-                </div>
-              ))}
+          </div>
+
+          {/* Info rollo */}
+          <div className="mt-3 flex items-start gap-2 bg-[#F5F5F5] px-3 py-2.5 rounded">
+            <Info size={13} className="text-[#CC0055] mt-0.5 shrink-0"/>
+            <p className="text-xs font-light text-[#6B6B6B]">
+              Ancho de rollo fijo: <strong className="text-[#111]">{ANCHO_ROLLO*100}cm</strong>.{" "}
+              {t.uvMode
+                ? "Mínimo medio metro. Fracciones se cobran exactas desde 0.5m."
+                : "Mínimo 1 metro. Menos de 1m se cobra como metro completo."}
+            </p>
+          </div>
+
+          {/* Aviso de redondeo */}
+          {cal?.redondeo && (
+            <div className="mt-2 flex items-start gap-2 bg-amber-50 border border-amber-200 px-3 py-2.5 rounded">
+              <Info size={13} className="text-amber-500 mt-0.5 shrink-0"/>
+              <p className="text-xs font-light text-amber-800">
+                {cal.m}m solicitado → se cobra <strong className="font-medium">{cal.metrosCobrados}m</strong> (mínimo).
+              </p>
             </div>
           )}
         </div>
 
-        {/* Planchado opcional */}
+        {/* Planchado */}
         <div>
           <h3 className="text-[10px] font-medium tracking-[0.15em] uppercase text-[#6B6B6B] mb-4">3. Planchado (opcional)</h3>
           <div className="grid grid-cols-2 gap-2 mb-3">
-            {[{id:"",label:"Sin planchado"}, ...PLANCHADO].map(p=>(
+            {[{id:"",label:"Sin planchado"}, ...PLANCHADO].map(p => (
               <button key={p.id} onClick={()=>setPlanchado(p.id)}
                 className={`px-4 py-2.5 text-sm rounded border transition-all text-left ${planchado===p.id?"bg-[#CC0055] text-white border-[#CC0055] font-medium":"border-[#E0E0E0] text-[#3A3A3A] font-light hover:border-[#CC0055]"}`}>
                 {'precio' in p ? `${p.label} — ${formatMXN(p.precio)}` : p.label}
@@ -132,27 +171,36 @@ export default function DTFCalculator() {
           {!cal ? (
             <div className="flex flex-col items-center text-center py-12 gap-4">
               <AlertCircle size={28} className="text-white/20"/>
+              <p className="text-sm font-light text-white/25 max-w-[180px]">Ingresa los metros para ver el precio.</p>
             </div>
           ) : (
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-2.5 pb-5 border-b border-white/10">
                 <div className="flex justify-between text-sm">
                   <span className="text-white/40 font-light">Tipo</span>
-                  <span className="text-white font-light text-xs">{t.label}</span>
+                  <span className="text-white font-light">{t.label}</span>
                 </div>
-                {!isUV && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-white/40 font-light">Ancho rollo</span>
+                  <span className="text-white font-light">{ANCHO_ROLLO*100}cm</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-white/40 font-light">Metros solicitados</span>
+                  <span className="text-white font-light">{cal.m}m</span>
+                </div>
+                {cal.redondeo && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-white/40 font-light">Medida</span>
-                    <span className="text-white font-light">{ancho}m × {largo}m</span>
+                    <span className="text-white/40 font-light">Metros cobrados</span>
+                    <span className="text-[#CC0055] font-medium">{cal.metrosCobrados}m</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
                   <span className="text-white/40 font-light">Cantidad</span>
-                  <span className="text-white font-light">{cal.q} {isUV?"metros":"pzas"}</span>
+                  <span className="text-white font-light">{cal.q} pzas</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-white/40 font-light">Precio unitario DTF</span>
-                  <span className="text-white font-light">{formatMXN(cal.unitDTF)}</span>
+                  <span className="text-white/40 font-light">Precio unitario</span>
+                  <span className="text-[#CC0055] font-medium">{formatMXN(cal.precioUnitario)}</span>
                 </div>
                 {cal.pl && cal.subPl > 0 && (
                   <div className="flex justify-between text-sm">
@@ -187,6 +235,7 @@ export default function DTFCalculator() {
             <button className="w-full flex items-center justify-center gap-2.5 bg-[#CC0055] text-white font-medium text-base py-4 rounded hover:bg-[#990040] transition-colors">
               Continuar pedido <ArrowRight size={17}/>
             </button>
+            <p className="text-xs font-light text-white/20 text-center">Siguiente: subir archivo y datos de entrega</p>
           </div>
         )}
       </div>
