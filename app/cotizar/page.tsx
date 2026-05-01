@@ -3,6 +3,7 @@ import Footer from "@/components/Footer";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import WhatsAppButton from "@/components/ui/WhatsAppButton";
+import ChatWidget from "@/components/ui/ChatWidget";
 
 const categorias = [
   { nombre: "Lonas", desc: "Frontlit, Mesh, Backlight — precio por m²", href: "/cotizar/lonas", img: "https://cdn.midjourney.com/9e48b4b7-ae6b-48fd-a188-d1af1a1c7873/0_2.png" },
@@ -54,7 +55,7 @@ export default function CotizarPage() {
         </div>
       </main>
       <Footer />
-      <WhatsAppButton />
+      <WhatsAppButton /><ChatWidget />
     </>
   );
 }

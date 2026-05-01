@@ -8,6 +8,7 @@ import Guarantees from "@/components/sections/Guarantees";
 import Locations from "@/components/sections/Locations";
 import Footer from "@/components/Footer";
 import WhatsAppButton from "@/components/ui/WhatsAppButton";
+import ChatWidget from "@/components/ui/ChatWidget";
 
 export default function Home() {
   return (
@@ -23,7 +24,7 @@ export default function Home() {
         <Locations />
       </main>
       <Footer />
-      <WhatsAppButton />
+      <WhatsAppButton /><ChatWidget />
     </>
   );
 }

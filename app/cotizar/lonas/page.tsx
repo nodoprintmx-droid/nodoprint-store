@@ -2,6 +2,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import LonaCalculator from "@/components/calculators/LonaCalculator";
 import WhatsAppButton from "@/components/ui/WhatsAppButton";
+import ChatWidget from "@/components/ui/ChatWidget";
 
 export default function LonaPage() {
   return (
@@ -23,7 +24,7 @@ export default function LonaPage() {
         </div>
       </main>
       <Footer />
-      <WhatsAppButton />
+      <WhatsAppButton /><ChatWidget />
     </>
   );
 }
