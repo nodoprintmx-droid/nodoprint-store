@@ -5,15 +5,17 @@ import { ArrowRight } from "lucide-react";
 import WhatsAppButton from "@/components/ui/WhatsAppButton";
 
 const categorias = [
-  { nombre: "Lonas", desc: "Frontlit, Mesh, Backlight — precio por m²", href: "/cotizar/lonas", img: "https://images.unsplash.com/photo-1588681664899-f142ff2dc9b1?w=600&q=80&auto=format&fit=crop" },
-  { nombre: "Viniles", desc: "Brillante, mate, microperforado, holográfico — por m²", href: "/cotizar/viniles", img: "https://images.unsplash.com/photo-1562259929-b4e1fd3aef09?w=600&q=80&auto=format&fit=crop" },
-  { nombre: "DTF & DTF UV", desc: "Transfer textil por metro cuadrado", href: "/cotizar/dtf", img: "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=600&q=80&auto=format&fit=crop" },
-  { nombre: "Stickers", desc: "Planillas 26×42cm, vinil, couché y adhesivos metálicos", href: "/cotizar/stickers", img: "https://images.unsplash.com/photo-1626785774573-4b799315345d?w=600&q=80&auto=format&fit=crop" },
-  { nombre: "Credenciales PVC", desc: "Swift Pro, Sin Filos, Data Card — precio por pieza", href: "/cotizar/credenciales", img: "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=600&q=80&auto=format&fit=crop" },
-  { nombre: "Impresión Digital", desc: "Carta, tabloide, rebatible — precio por pieza y volumen", href: "/cotizar/digital", img: "https://images.unsplash.com/photo-1586339949916-3e9457bef6d3?w=600&q=80&auto=format&fit=crop" },
-  { nombre: "Estructuras", desc: "Rollup, banners, demo stands, banderas, muros", href: "/cotizar/estructuras", img: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&q=80&auto=format&fit=crop" },
-  { nombre: "Textil", desc: "Playeras, sudaderas, gorras, bolsas con sublimación o DTF", href: "/cotizar/textil", img: "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=600&q=80&auto=format&fit=crop" },
-  { nombre: "Telas de impresión", desc: "Banner, canvas, city, foto — precio por m²", href: "/cotizar/telas", img: "https://images.unsplash.com/photo-1572044162444-ad60f128bdea?w=600&q=80&auto=format&fit=crop" },
+  { nombre: "Lonas", desc: "Frontlit, Mesh, Backlight — precio por m²", href: "/cotizar/lonas", img: "https://cdn.midjourney.com/9e48b4b7-ae6b-48fd-a188-d1af1a1c7873/0_2.png" },
+  { nombre: "Viniles & Telas", desc: "Brillante, mate, microperforado, holográfico, canvas, banner — por m²", href: "/cotizar/viniles", img: "https://images.unsplash.com/photo-1562259929-b4e1fd3aef09?w=600&q=80&auto=format&fit=crop" },
+  { nombre: "DTF & DTF UV", desc: "Transfer textil por metro lineal — rollo 58cm", href: "/cotizar/dtf", img: "https://cdn.midjourney.com/b1d3418f-b5c7-4c5a-aa23-7ad7c691c484/0_3.png" },
+  { nombre: "Stickers & Etiquetas", desc: "Planillas en vinil, couché, adhesivos metálicos y UV", href: "/cotizar/stickers", img: "https://images.unsplash.com/photo-1626785774573-4b799315345d?w=600&q=80&auto=format&fit=crop" },
+  { nombre: "Credenciales PVC", desc: "Premium y estándar — precio por pieza con descuento por volumen", href: "/cotizar/credenciales", img: "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=600&q=80&auto=format&fit=crop" },
+  { nombre: "Impresión Digital", desc: "Carta, tabloide, supertab — precio por pieza y volumen", href: "/cotizar/digital", img: "https://images.unsplash.com/photo-1586339949916-3e9457bef6d3?w=600&q=80&auto=format&fit=crop" },
+  { nombre: "Estructuras & Displays", desc: "Rollup, banners, demo stands, banderas, muros expandibles", href: "/cotizar/estructuras", img: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&q=80&auto=format&fit=crop" },
+  { nombre: "Impresión en Rígidos", desc: "Coroplast, estireno, trovicel, foamboard, acrílico", href: "/cotizar/rigidos", img: "https://images.unsplash.com/photo-1572044162444-ad60f128bdea?w=600&q=80&auto=format&fit=crop" },
+  { nombre: "Imanes", desc: "Estándar, con suaje y formato grande — precio por paquete", href: "/cotizar/imanes", img: "https://images.unsplash.com/photo-1588681664899-f142ff2dc9b1?w=600&q=80&auto=format&fit=crop" },
+  { nombre: "Corte de Vinil", desc: "Rotulación, esmerilado, reflejante, textil, mascarilla y transfer", href: "/cotizar/corte-vinil", img: "https://images.unsplash.com/photo-1562259929-b4e1fd3aef09?w=600&q=80&auto=format&fit=crop" },
+  { nombre: "Offset & Postales", desc: "Volantes ECO y PLUS, tarjetas, postales, bond y notas autocopiantes — por millar", href: "/cotizar/offset", img: "https://cdn.midjourney.com/88c52645-60ed-4445-9078-66dd54885cfd/0_0.png" },
 ];
 
 export default function CotizarPage() {
@@ -37,7 +39,7 @@ export default function CotizarPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-0.5 bg-[#E0E0E0]">
             {categorias.map((c) => (
               <Link key={c.nombre} href={c.href}
-                className="group bg-white flex items-center gap-5 p-6 hover:bg-[#FFF0F5] transition-colors border-0">
+                className="group bg-white flex items-center gap-5 p-6 hover:bg-[#FFF0F5] transition-colors">
                 <div className="w-16 h-16 rounded overflow-hidden shrink-0">
                   <img src={c.img} alt={c.nombre} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 </div>
