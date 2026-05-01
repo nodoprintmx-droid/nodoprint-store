@@ -333,25 +333,30 @@ export const CONTACTO = {
 
 // ─── UTILIDADES ───────────────────────────
 export function calcPaneles(w: number, rolls: number[]): { paneles: number[]; tw: number; sobrante: number } {
-  const mx = rolls[rolls.length - 1];
+  const sorted = [...rolls].sort((a, b) => a - b);
+  const mx = sorted[sorted.length - 1];
   if (w <= mx + 1e-9) {
-    for (const r of rolls) {
+    for (const r of sorted) {
       if (w <= r + 1e-9) return { paneles: [r], tw: r, sobrante: parseFloat((r - w).toFixed(4)) };
     }
   }
+  const desc = [...sorted].reverse();
   let best: { paneles: number[]; tw: number; sobrante: number } | null = null;
-  for (const r of rolls) {
+  for (const r of desc) {
     const full = Math.floor(w / r);
-    const rem = w - full * r;
+    const rem  = parseFloat((w - full * r).toFixed(6));
     let pan: number[] = full > 0 ? Array(full).fill(r) : [];
     if (rem > 1e-9) {
-      const rr = rolls.find(x => rem <= x + 1e-9);
+      const rr = sorted.find(x => rem <= x + 1e-9);
       if (!rr) continue;
       pan = [...pan, rr];
     }
-    const tw = pan.reduce((a, b) => a + b, 0);
+    const tw = parseFloat(pan.reduce((a, b) => a + b, 0).toFixed(4));
     const ov = parseFloat((tw - w).toFixed(4));
-    if (!best || ov < best.sobrante - 1e-9) best = { paneles: pan, tw, sobrante: ov };
+    const better = !best
+      || ov < best.sobrante - 1e-9
+      || (Math.abs(ov - best.sobrante) < 1e-9 && pan.length < best.paneles.length);
+    if (better) best = { paneles: pan, tw, sobrante: ov };
   }
   return best ?? { paneles: [mx], tw: mx, sobrante: mx - w };
 }
