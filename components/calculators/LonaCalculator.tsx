@@ -1,7 +1,7 @@
 "use client";
 import { useState, useMemo } from "react";
 import { LONA_PX, LONA_CALIDADES, LONA_ROLLS_BASE, LONA_ROLLS_HI, LONA_HI_KEYS, calcPaneles, formatMXN, IVA, ANTICIPO } from "@/lib/precios";
-import { Info, CheckCircle2, AlertCircle, ArrowRight, AlertTriangle } from "lucide-react";
+import { Info, CheckCircle2, AlertCircle, ArrowRight, AlertTriangle, RotateCcw } from "lucide-react";
 
 type Tipo = "front" | "mesh" | "bl";
 const TIPOS = [
@@ -9,14 +9,14 @@ const TIPOS = [
   { id: "mesh"  as Tipo, label: "Mesh" },
   { id: "bl"    as Tipo, label: "Backlight" },
 ];
-const DOBLEZ = 0.05; // 5cm perimetral para ojillos
+const DOBLEZ   = 0.05; // 5cm perimetral para ojillos
 const TRASLAPE = 0.03; // 3cm por unión de panel
 
 export default function LonaCalculator() {
-  const [ancho, setAncho] = useState("1");
-  const [alto,  setAlto]  = useState("2");
-  const [qty,   setQty]   = useState("1");
-  const [tipo,  setTipo]  = useState<Tipo>("front");
+  const [ancho,   setAncho]   = useState("1");
+  const [alto,    setAlto]    = useState("2");
+  const [qty,     setQty]     = useState("1");
+  const [tipo,    setTipo]    = useState<Tipo>("front");
   const [calidad, setCalidad] = useState("c2");
   const [conOjillos, setConOjillos] = useState(true);
 
@@ -28,34 +28,37 @@ export default function LonaCalculator() {
     const q = parseInt(qty)     || 1;
     if (!w || !h) return null;
 
-    const isHi = LONA_HI_KEYS.includes(calidad);
+    const isHi  = LONA_HI_KEYS.includes(calidad);
     const rolls = isHi ? LONA_ROLLS_HI : LONA_ROLLS_BASE;
-    const plan  = calcPaneles(w, rolls);
+    const plan  = calcPaneles(w, h, rolls);
     const ppsm  = LONA_PX[calidad] ?? null;
     if (!ppsm) return null;
 
-    const numPaneles  = plan.paneles.length;
-    const numUniones  = numPaneles - 1;
+    const numPaneles = plan.paneles.length;
+    const numUniones = numPaneles - 1;
 
-    // Área cobrada = ancho total de paneles × alto
-    const area = plan.tw * h;
+    // Dimensiones cobradas según orientación
+    // tw = ancho cobrado (dirección de los paneles), th = largo cobrado
+    const area  = plan.tw * plan.th;
     const print = area * ppsm;
-    const unit  = print;
-    const sub   = unit * q;
+    const sub   = print * q;
     const iva   = sub * IVA;
     const total = sub + iva;
 
-    // Medida visible final (con doblez y traslape)
-    const anchoVisible = conOjillos
-      ? parseFloat((w - 2 * DOBLEZ - numUniones * TRASLAPE).toFixed(3))
-      : parseFloat((w - numUniones * TRASLAPE).toFixed(3));
-    const altoVisible = conOjillos
-      ? parseFloat((h - 2 * DOBLEZ).toFixed(3))
-      : h;
+    // Medida visible final
+    // La reducción por traslape va en la dirección de los paneles (tw)
+    const reducTraslape = numUniones * TRASLAPE;
+    const reducDoblez   = conOjillos ? 2 * DOBLEZ : 0;
+    // Dirección de paneles: si rotada, los paneles van en el alto original
+    const visibleDir    = parseFloat((plan.tw - reducTraslape - reducDoblez).toFixed(3));
+    const visiblePerp   = parseFloat((plan.th - reducDoblez).toFixed(3));
+    // Presentar en términos de ancho/alto originales del cliente
+    const anchoVisible  = plan.rotada ? visiblePerp : visibleDir;
+    const altoVisible   = plan.rotada ? visibleDir  : visiblePerp;
 
     return {
       w, h, q, plan, numPaneles, numUniones,
-      area, ppsm, print, unit, sub, iva, total,
+      area, ppsm, print, sub, iva, total,
       anticipo: total * ANTICIPO,
       anchoVisible: Math.max(0, anchoVisible),
       altoVisible:  Math.max(0, altoVisible),
@@ -85,7 +88,17 @@ export default function LonaCalculator() {
             ))}
           </div>
 
-          {/* Alerta de paneles */}
+          {/* Aviso de rotación */}
+          {cal && cal.plan.rotada && (
+            <div className="mt-3 flex items-start gap-2 bg-blue-50 border border-blue-100 px-3 py-3 rounded">
+              <RotateCcw size={13} className="text-blue-500 mt-0.5 shrink-0" />
+              <p className="text-xs font-light text-blue-800 leading-relaxed">
+                <strong className="font-medium">Lona orientada verticalmente:</strong> se imprime rotada para aprovechar el rollo de {cal.plan.paneles[0]}m sin necesidad de paneles adicionales.
+              </p>
+            </div>
+          )}
+
+          {/* Aviso de paneles */}
           {cal && cal.numPaneles > 1 && (
             <div className="mt-3 flex items-start gap-2 bg-amber-50 border border-amber-200 px-3 py-3 rounded">
               <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
@@ -93,22 +106,19 @@ export default function LonaCalculator() {
                 <strong className="font-medium">Lona en {cal.numPaneles} paneles:</strong>{" "}
                 {cal.plan.paneles.map((p, i) => `Panel ${i + 1}: ${p}m`).join(" · ")}{" "}
                 = {cal.plan.tw.toFixed(2)}m cobrado.
-                {cal.numUniones > 0 && (
-                  <span className="block mt-1">
-                    Cada unión usa <strong>3cm de traslape</strong> — la medida visible final se reduce {(cal.numUniones * TRASLAPE * 100).toFixed(0)}cm en el ancho.
-                  </span>
-                )}
+                <span className="block mt-1">
+                  Cada unión lleva <strong>3cm de traslape</strong> — la medida visible se reduce {(cal.numUniones * TRASLAPE * 100).toFixed(0)}cm.
+                </span>
               </div>
             </div>
           )}
 
-          {/* Alerta rollo simple */}
-          {cal && cal.numPaneles === 1 && cal.plan.tw !== cal.w && (
+          {/* Aviso rollo simple */}
+          {cal && cal.numPaneles === 1 && !cal.plan.rotada && cal.plan.tw !== cal.w && (
             <div className="mt-3 flex items-start gap-2 bg-[#F5F5F5] px-3 py-2.5 rounded">
               <Info size={13} className="text-[#CC0055] mt-0.5 shrink-0" />
               <p className="text-xs font-light text-[#6B6B6B]">
-                Ancho {cal.w}m → cobrado al rollo más cercano:{" "}
-                <strong className="text-[#CC0055]">{cal.plan.tw}m</strong>
+                Ancho {cal.w}m → cobrado al rollo más cercano: <strong className="text-[#CC0055]">{cal.plan.tw}m</strong>
               </p>
             </div>
           )}
@@ -132,7 +142,7 @@ export default function LonaCalculator() {
           <h3 className="text-[10px] font-medium tracking-[0.15em] uppercase text-[#6B6B6B] mb-4">3. Calidad</h3>
           <div className="flex flex-col gap-2">
             {cals.map(c => {
-              const px = LONA_PX[c.id];
+              const px  = LONA_PX[c.id];
               const sel = calidad === c.id;
               return (
                 <button key={c.id} onClick={() => setCalidad(c.id)}
@@ -161,8 +171,6 @@ export default function LonaCalculator() {
             </div>
             <span className="text-sm font-light text-[#3A3A3A]">Con ojillos perimetrales</span>
           </label>
-
-          {/* Mensaje de doblez — siempre visible cuando hay ojillos */}
           {conOjillos && (
             <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 px-3 py-3 rounded">
               <Info size={13} className="text-blue-500 mt-0.5 shrink-0" />
@@ -197,30 +205,36 @@ export default function LonaCalculator() {
                   <span className="text-white font-light">{cal.w}m × {cal.h}m</span>
                 </div>
 
-                {/* Desglose de paneles */}
-                {cal.numPaneles > 1 ? (
+                {cal.plan.rotada && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-white/40 font-light">Orientación</span>
+                    <span className="text-blue-400 font-medium">Rotada (1 panel)</span>
+                  </div>
+                )}
+
+                {cal.numPaneles > 1 && (
                   <>
                     <div className="flex justify-between text-sm">
-                      <span className="text-white/40 font-light">Número de paneles</span>
+                      <span className="text-white/40 font-light">Paneles</span>
                       <span className="text-amber-400 font-medium">{cal.numPaneles} paneles</span>
                     </div>
                     {cal.plan.paneles.map((p, i) => (
                       <div key={i} className="flex justify-between text-sm pl-3 border-l border-white/10">
                         <span className="text-white/30 font-light">Panel {i + 1}</span>
-                        <span className="text-white/60 font-light">{p}m × {cal.h}m</span>
+                        <span className="text-white/60 font-light">
+                          {cal.plan.rotada ? `${cal.h}m × ${p}m` : `${p}m × ${cal.h}m`}
+                        </span>
                       </div>
                     ))}
-                    <div className="flex justify-between text-sm">
-                      <span className="text-white/40 font-light">Total cobrado</span>
-                      <span className="text-[#CC0055] font-medium">{cal.plan.tw.toFixed(2)}m × {cal.h}m</span>
-                    </div>
                   </>
-                ) : cal.plan.tw !== cal.w ? (
+                )}
+
+                {cal.numPaneles === 1 && !cal.plan.rotada && cal.plan.tw !== cal.w && (
                   <div className="flex justify-between text-sm">
                     <span className="text-white/40 font-light">Cobrado (rollo)</span>
                     <span className="text-[#CC0055] font-medium">{cal.plan.tw}m × {cal.h}m</span>
                   </div>
-                ) : null}
+                )}
 
                 <div className="flex justify-between text-sm">
                   <span className="text-white/40 font-light">Área cobrada</span>
@@ -239,7 +253,7 @@ export default function LonaCalculator() {
                 {cal.q > 1 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-white/40 font-light">Precio por pieza</span>
-                    <span className="text-white font-light">{formatMXN(cal.unit)}</span>
+                    <span className="text-white font-light">{formatMXN(cal.print)}</span>
                   </div>
                 )}
               </div>

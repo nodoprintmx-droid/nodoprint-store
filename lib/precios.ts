@@ -332,7 +332,8 @@ export const CONTACTO = {
 };
 
 // ─── UTILIDADES ───────────────────────────
-export function calcPaneles(w: number, rolls: number[]): { paneles: number[]; tw: number; sobrante: number } {
+// Calcula la combinación óptima de paneles para una dimensión dada
+function _paneles(w: number, rolls: number[]): { paneles: number[]; tw: number; sobrante: number } {
   const sorted = [...rolls].sort((a, b) => a - b);
   const mx = sorted[sorted.length - 1];
   if (w <= mx + 1e-9) {
@@ -359,6 +360,28 @@ export function calcPaneles(w: number, rolls: number[]): { paneles: number[]; tw
     if (better) best = { paneles: pan, tw, sobrante: ov };
   }
   return best ?? { paneles: [mx], tw: mx, sobrante: mx - w };
+}
+
+// Calcula paneles eligiendo la orientación óptima (horizontal o rotada)
+// para minimizar paneles y desperdicio
+export function calcPaneles(
+  w: number,
+  h: number,
+  rolls: number[]
+): { paneles: number[]; tw: number; th: number; sobrante: number; rotada: boolean } {
+  // Orientación normal: paneles en el ancho
+  const normal  = _paneles(w, rolls);
+  // Orientación rotada: paneles en el alto (intercambia w y h)
+  const rotada  = _paneles(h, rolls);
+
+  const scoreNormal = normal.paneles.length * 1000 + normal.sobrante;
+  const scoreRotada = rotada.paneles.length  * 1000 + rotada.sobrante;
+
+  if (scoreRotada < scoreNormal) {
+    // Rotar conviene: el "ancho" cobrado es el alto original, largo es el ancho original
+    return { paneles: rotada.paneles, tw: rotada.tw, th: w, sobrante: rotada.sobrante, rotada: true };
+  }
+  return { paneles: normal.paneles, tw: normal.tw, th: h, sobrante: normal.sobrante, rotada: false };
 }
 
 export function calcOjillos(w: number, l: number, sep: number): number {
