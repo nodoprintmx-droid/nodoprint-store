@@ -1,43 +1,67 @@
 "use client";
 import { useState, useMemo } from "react";
-import { STICKER_MATERIALES, ST_MAP, formatMXN, IVA, ANTICIPO } from "@/lib/precios";
-import { Info, AlertCircle, ArrowRight } from "lucide-react";
+import { formatMXN, IVA, ANTICIPO } from "@/lib/precios";
+import { Info, AlertCircle, ArrowRight, CheckCircle2 } from "lucide-react";
 
-const PLANILLA_W = 0.26;
-const PLANILLA_H = 0.42;
+// Materiales con su planilla correspondiente en cm
+const MATERIALES = [
+  // Vinil estándar — planilla 26×42cm
+  { value: "vb-imp",  label: "Vinil Blanco — Solo impresión",         precio: 39,  planW: 26,  planH: 42  },
+  { value: "vb-bco",  label: "Vinil Blanco — C/Blanco",               precio: 49,  planW: 26,  planH: 42  },
+  { value: "vb-cor",  label: "Vinil Blanco — C/Corte",                precio: 59,  planW: 26,  planH: 42  },
+  { value: "vt-imp",  label: "Vinil Transparente — Solo impresión",   precio: 39,  planW: 26,  planH: 42  },
+  { value: "vt-bco",  label: "Vinil Transparente — C/Blanco",         precio: 49,  planW: 26,  planH: 42  },
+  { value: "vt-cor",  label: "Vinil Transparente — C/Corte",          precio: 59,  planW: 26,  planH: 42  },
+  { value: "am-imp",  label: "Adhe Oro/Plata/Cromo — Imp",            precio: 65,  planW: 26,  planH: 42  },
+  { value: "am-bco",  label: "Adhe Oro/Plata/Cromo — C/Blanco",       precio: 75,  planW: 26,  planH: 42  },
+  { value: "am-cor",  label: "Adhe Oro/Plata/Cromo — C/Corte",        precio: 85,  planW: 26,  planH: 42  },
+  { value: "co-imp",  label: "Adhe-Couché — Imp",                     precio: 14,  planW: 26,  planH: 42  },
+  { value: "co-cor",  label: "Adhe-Couché — C/Corte",                 precio: 38,  planW: 26,  planH: 42  },
+  // UV — planilla 145×50cm
+  { value: "uv-mat",  label: "UV Mate",                               precio: 490, planW: 145, planH: 50  },
+  { value: "uv-bri",  label: "UV Brillante",                          precio: 490, planW: 145, planH: 50  },
+  { value: "uv-tra",  label: "UV Transparente",                       precio: 490, planW: 145, planH: 50  },
+  { value: "uv-bco",  label: "UV Tinta Blanca / Barniz",              precio: 560, planW: 145, planH: 50  },
+  // UV Holográfico — planilla 120×50cm
+  { value: "uv-hol",  label: "UV Holográfico",                        precio: 680, planW: 120, planH: 50  },
+];
 
 export default function StickerCalculator() {
-  const [qty,  setQty]  = useState("100");
-  const [mat,  setMat]  = useState("39");
+  const [mat,      setMat]      = useState("vb-imp");
   const [anchoStk, setAnchoStk] = useState("10");
   const [altoStk,  setAltoStk]  = useState("10");
+  const [qty,      setQty]      = useState("100");
+
+  const m = MATERIALES.find(x => x.value === mat)!;
 
   const cal = useMemo(() => {
-    const q    = parseInt(qty)        || 1;
-    const aw   = parseFloat(anchoStk) / 100 || 0.1;
-    const ah   = parseFloat(altoStk)  / 100 || 0.1;
-    const px   = ST_MAP[mat];
-    if (!px) return null;
+    const aw = parseFloat(anchoStk) || 0;
+    const ah = parseFloat(altoStk)  || 0;
+    const q  = parseInt(qty)        || 1;
+    if (!aw || !ah) return null;
 
-    // Piezas por planilla
-    const pxPlan = Math.floor(PLANILLA_W / aw) * Math.floor(PLANILLA_H / ah);
-    const piezasPorPlanilla = Math.max(1, pxPlan);
-    const planillas = Math.ceil(q / piezasPorPlanilla);
-
-    const unit  = px;
-    const sub   = planillas * unit;
+    const pxPlan   = Math.floor(m.planW / aw) * Math.floor(m.planH / ah);
+    const piezasPP = Math.max(1, pxPlan);
+    const planillas = Math.ceil(q / piezasPP);
+    const sub   = planillas * m.precio;
     const iva   = sub * IVA;
     const total = sub + iva;
-    const label = STICKER_MATERIALES.find(m => m.value === mat)?.label || "";
 
-    return { q, aw, ah, piezasPorPlanilla, planillas, unit, sub, iva, total, anticipo: total * ANTICIPO, label };
-  }, [qty, mat, anchoStk, altoStk]);
+    return { aw, ah, q, piezasPP, planillas, sub, iva, total, anticipo: total * ANTICIPO };
+  }, [mat, anchoStk, altoStk, qty, m]);
+
+  // Agrupar materiales
+  const grupos = [
+    { label: "Vinil estándar",   items: MATERIALES.filter(x => x.planW === 26)  },
+    { label: "UV — Planilla 145×50cm",  items: MATERIALES.filter(x => x.planW === 145) },
+    { label: "UV Holográfico — Planilla 120×50cm", items: MATERIALES.filter(x => x.planW === 120) },
+  ];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-0.5 bg-[#E0E0E0] max-w-6xl">
       <div className="lg:col-span-3 bg-white p-8 md:p-10 flex flex-col gap-8">
 
-        {/* Medidas del sticker */}
+        {/* Medidas sticker */}
         <div>
           <h3 className="text-[10px] font-medium tracking-[0.15em] uppercase text-[#6B6B6B] mb-5">1. Tamaño del sticker</h3>
           <div className="grid grid-cols-3 gap-4">
@@ -55,8 +79,8 @@ export default function StickerCalculator() {
           <div className="mt-3 flex items-start gap-2 bg-[#F5F5F5] px-3 py-2.5 rounded">
             <Info size={13} className="text-[#CC0055] mt-0.5 shrink-0"/>
             <p className="text-xs font-light text-[#6B6B6B]">
-              Planilla estándar: {PLANILLA_W*100}×{PLANILLA_H*100}cm.
-              {cal && ` Caben ${cal.piezasPorPlanilla} stickers por planilla → ${cal.planillas} planilla${cal.planillas!==1?"s":""} para ${cal.q} piezas.`}
+              Planilla <strong className="text-[#111]">{m.planW}×{m.planH}cm</strong>.
+              {cal && ` Caben ${cal.piezasPP} sticker${cal.piezasPP!==1?"s":""} por planilla → ${cal.planillas} planilla${cal.planillas!==1?"s":""} para ${cal.q} piezas.`}
             </p>
           </div>
         </div>
@@ -64,13 +88,23 @@ export default function StickerCalculator() {
         {/* Material */}
         <div>
           <h3 className="text-[10px] font-medium tracking-[0.15em] uppercase text-[#6B6B6B] mb-4">2. Material y acabado</h3>
-          <div className="flex flex-col gap-2">
-            {STICKER_MATERIALES.map(m => (
-              <button key={m.value} onClick={()=>setMat(m.value)}
-                className={`flex items-center justify-between px-5 py-3.5 rounded border text-left transition-all ${mat===m.value?"border-[#CC0055] bg-[#FFF0F5]":"border-[#E0E0E0] hover:border-[#CC0055]/50"}`}>
-                <p className="text-sm font-light text-[#111]">{m.label}</p>
-                <span className="text-sm font-medium text-[#CC0055] shrink-0 ml-4">{formatMXN(m.precio)}/planilla</span>
-              </button>
+          <div className="flex flex-col gap-5">
+            {grupos.map(g => (
+              <div key={g.label}>
+                <p className="text-[10px] font-medium tracking-[0.15em] uppercase text-[#CCCCCC] mb-2">{g.label}</p>
+                <div className="flex flex-col gap-1.5">
+                  {g.items.map(x => (
+                    <button key={x.value} onClick={()=>setMat(x.value)}
+                      className={`flex items-center justify-between px-5 py-3.5 rounded border text-left transition-all ${mat===x.value?"border-[#CC0055] bg-[#FFF0F5]":"border-[#E0E0E0] hover:border-[#CC0055]/50"}`}>
+                      <p className="text-sm font-light text-[#111]">{x.label}</p>
+                      <div className="flex items-center gap-2 shrink-0 ml-4">
+                        <span className="text-sm font-medium text-[#CC0055]">{formatMXN(x.precio)}/planilla</span>
+                        {mat===x.value && <CheckCircle2 size={14} className="text-[#CC0055]"/>}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         </div>
@@ -90,7 +124,11 @@ export default function StickerCalculator() {
               <div className="flex flex-col gap-2.5 pb-5 border-b border-white/10">
                 <div className="flex justify-between text-sm">
                   <span className="text-white/40 font-light">Material</span>
-                  <span className="text-white font-light text-right max-w-[160px] text-xs leading-tight">{cal.label}</span>
+                  <span className="text-white font-light text-xs text-right max-w-[160px] leading-tight">{m.label}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-white/40 font-light">Planilla</span>
+                  <span className="text-white font-light">{m.planW}×{m.planH}cm</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-white/40 font-light">Tamaño sticker</span>
@@ -102,7 +140,7 @@ export default function StickerCalculator() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-white/40 font-light">Por planilla</span>
-                  <span className="text-white font-light">{cal.piezasPorPlanilla} pzas</span>
+                  <span className="text-white font-light">{cal.piezasPP} pzas</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-white/40 font-light">Planillas necesarias</span>
@@ -110,7 +148,7 @@ export default function StickerCalculator() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-white/40 font-light">Precio por planilla</span>
-                  <span className="text-white font-light">{formatMXN(cal.unit)}</span>
+                  <span className="text-white font-light">{formatMXN(m.precio)}</span>
                 </div>
               </div>
               <div className="flex flex-col gap-2.5">
