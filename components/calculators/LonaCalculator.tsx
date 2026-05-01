@@ -9,7 +9,7 @@ const TIPOS = [
   { id: "mesh"  as Tipo, label: "Mesh" },
   { id: "bl"    as Tipo, label: "Backlight" },
 ];
-const DOBLEZ   = 0.05; // 5cm perimetral para ojillos
+const DOBLEZ   = 0.025; // 2.5cm por lado = 5cm total perimetral
 const TRASLAPE = 0.03; // 3cm por unión de panel
 
 export default function LonaCalculator() {
@@ -104,8 +104,7 @@ export default function LonaCalculator() {
               <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
               <div className="text-xs font-light text-amber-800 leading-relaxed">
                 <strong className="font-medium">Lona en {cal.numPaneles} paneles:</strong>{" "}
-                {cal.plan.paneles.map((p, i) => `Panel ${i + 1}: ${p}m`).join(" · ")}{" "}
-                = {cal.plan.tw.toFixed(2)}m cobrado.
+                {cal.plan.paneles.map((p, i) => cal.plan.rotada ? `Panel ${i+1}: ${cal.w}m × ${p}m` : `Panel ${i+1}: ${p}m × ${cal.h}m`).join(" · ")}
                 <span className="block mt-1">
                   Cada unión lleva <strong>3cm de traslape</strong> — la medida visible se reduce {(cal.numUniones * TRASLAPE * 100).toFixed(0)}cm.
                 </span>
@@ -222,7 +221,7 @@ export default function LonaCalculator() {
                       <div key={i} className="flex justify-between text-sm pl-3 border-l border-white/10">
                         <span className="text-white/30 font-light">Panel {i + 1}</span>
                         <span className="text-white/60 font-light">
-                          {cal.plan.rotada ? `${cal.h}m × ${p}m` : `${p}m × ${cal.h}m`}
+                          {cal.plan.rotada ? `${cal.w}m × ${p}m` : `${p}m × ${cal.h}m`}
                         </span>
                       </div>
                     ))}
