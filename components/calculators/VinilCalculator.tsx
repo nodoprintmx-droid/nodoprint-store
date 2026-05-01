@@ -1,18 +1,38 @@
 "use client";
 import { useState, useMemo } from "react";
 import { VINIL_MATERIALES, formatMXN, IVA, ANTICIPO } from "@/lib/precios";
-import { Info, AlertCircle, ArrowRight, RotateCcw } from "lucide-react";
+import { Info, AlertCircle, ArrowRight, RotateCcw, AlertTriangle } from "lucide-react";
 
-const ROLLO = 1.52; // ancho de rollo de vinil
+const ROLLO = 1.52;
+const TRASLAPE = 0.03;
 
-function calcRollo(w: number, h: number) {
-  // Intenta orientación normal y rotada, elige la que use menos rollos
-  const rollsNormal = Math.ceil(w / ROLLO) * ROLLO;
-  const rollsRotada = Math.ceil(h / ROLLO) * ROLLO;
-  if (rollsRotada < rollsNormal) {
-    return { tw: rollsRotada, th: w, rotada: true, anchoCobrado: rollsRotada };
+function calcVinilPaneles(w: number, h: number) {
+  // Intenta orientación normal y rotada, elige la que genere menos paneles
+  function paneles(dim: number) {
+    const n = Math.ceil(dim / ROLLO);
+    return { n, tw: n * ROLLO };
   }
-  return { tw: rollsNormal, th: h, rotada: false, anchoCobrado: rollsNormal };
+
+  const normal = paneles(w);
+  const rotada = paneles(h);
+
+  if (rotada.n < normal.n) {
+    // Rotar conviene — paneles van sobre el alto original
+    return {
+      paneles: Array(rotada.n).fill(ROLLO),
+      tw: rotada.tw,   // ancho cobrado (era el alto)
+      th: w,           // largo cobrado (era el ancho)
+      numPaneles: rotada.n,
+      rotada: true,
+    };
+  }
+  return {
+    paneles: Array(normal.n).fill(ROLLO),
+    tw: normal.tw,
+    th: h,
+    numPaneles: normal.n,
+    rotada: false,
+  };
 }
 
 const GRUPOS = [...new Set(VINIL_MATERIALES.map(m => m.grupo || "Viniles"))];
@@ -33,14 +53,31 @@ export default function VinilCalculator() {
     const material = VINIL_MATERIALES.find(m => m.value === mat);
     if (!w || !h || !material) return null;
 
-    const { tw, th, rotada } = calcRollo(w, h);
-    const area  = tw * th;
-    const unit  = area * material.precio;
-    const sub   = unit * q;
-    const iva   = sub * IVA;
-    const total = sub + iva;
+    const plan       = calcVinilPaneles(w, h);
+    const numUniones = plan.numPaneles - 1;
+    const area       = plan.tw * plan.th;
+    const unit       = area * material.precio;
+    const sub        = unit * q;
+    const iva        = sub * IVA;
+    const total      = sub + iva;
 
-    return { w, h, q, tw, th, rotada, area, ppsm: material.precio, unit, sub, iva, total, anticipo: total * ANTICIPO, label: material.label };
+    // Medida visible final con traslapes
+    const reducTraslape = numUniones * TRASLAPE;
+    const anchoVisible = plan.rotada
+      ? parseFloat((w).toFixed(3))
+      : parseFloat((w - reducTraslape).toFixed(3));
+    const altoVisible = plan.rotada
+      ? parseFloat((h - reducTraslape).toFixed(3))
+      : h;
+
+    return {
+      w, h, q, plan, numUniones,
+      area, ppsm: material.precio, unit, sub, iva, total,
+      anticipo: total * ANTICIPO,
+      anchoVisible: Math.max(0, anchoVisible),
+      altoVisible:  Math.max(0, altoVisible),
+      label: material.label,
+    };
   }, [ancho, alto, qty, mat]);
 
   return (
@@ -51,7 +88,7 @@ export default function VinilCalculator() {
         <div>
           <h3 className="text-[10px] font-medium tracking-[0.15em] uppercase text-[#6B6B6B] mb-5">1. Medidas</h3>
           <div className="grid grid-cols-3 gap-4">
-            {([["Ancho", ancho, setAncho], ["Alto", alto, setAlto], ["Cantidad", qty, setQty]] as [string,string,(s:string)=>void][]).map(([l,v,fn],i) => (
+            {([["Ancho", ancho, setAncho],["Alto", alto, setAlto],["Cantidad", qty, setQty]] as [string,string,(s:string)=>void][]).map(([l,v,fn],i) => (
               <div key={l}>
                 <label className="text-sm font-medium text-[#111] block mb-2">{l}</label>
                 <div className="flex items-center border border-[#E0E0E0] rounded focus-within:border-[#CC0055] transition-colors">
@@ -62,22 +99,49 @@ export default function VinilCalculator() {
               </div>
             ))}
           </div>
-          {cal?.rotada && (
+
+          {/* Rotación */}
+          {cal?.plan.rotada && (
             <div className="mt-3 flex items-start gap-2 bg-blue-50 border border-blue-100 px-3 py-3 rounded">
               <RotateCcw size={13} className="text-blue-500 mt-0.5 shrink-0"/>
               <p className="text-xs font-light text-blue-800">
-                <strong className="font-medium">Material orientado para optimizar rollo.</strong> Se cobra {cal.tw.toFixed(2)}m de ancho × {cal.th}m de largo.
+                <strong className="font-medium">Material orientado verticalmente</strong> para optimizar el uso del rollo de {ROLLO}m.
               </p>
             </div>
           )}
-          {cal && !cal.rotada && cal.tw !== cal.w && (
+
+          {/* Paneles */}
+          {cal && cal.plan.numPaneles > 1 && (
+            <div className="mt-3 flex items-start gap-2 bg-amber-50 border border-amber-200 px-3 py-3 rounded">
+              <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0"/>
+              <div className="text-xs font-light text-amber-800 leading-relaxed">
+                <strong className="font-medium">Vinil en {cal.plan.numPaneles} lienzos</strong> de {ROLLO}m c/u
+                {cal.plan.rotada ? ` × ${cal.w}m` : ` × ${cal.h}m`}.
+                {cal.numUniones > 0 && (
+                  <span className="block mt-1">
+                    Cada unión lleva <strong>3cm de traslape</strong>. Medida visible final: <strong>{cal.anchoVisible}m × {cal.altoVisible}m</strong>
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Rollo simple con cobro mayor */}
+          {cal && cal.plan.numPaneles === 1 && !cal.plan.rotada && cal.plan.tw !== cal.w && (
             <div className="mt-3 flex items-start gap-2 bg-[#F5F5F5] px-3 py-2.5 rounded">
               <Info size={13} className="text-[#CC0055] mt-0.5 shrink-0"/>
               <p className="text-xs font-light text-[#6B6B6B]">
-                Ancho {cal.w}m → cobrado al rollo más cercano: <strong className="text-[#CC0055]">{cal.tw.toFixed(2)}m</strong>
+                Ancho {cal.w}m → cobrado al ancho del rollo: <strong className="text-[#CC0055]">{cal.plan.tw.toFixed(2)}m</strong>
               </p>
             </div>
           )}
+
+          <div className="mt-3 flex items-start gap-2 bg-[#F5F5F5] px-3 py-2.5 rounded">
+            <Info size={13} className="text-[#CC0055] mt-0.5 shrink-0"/>
+            <p className="text-xs font-light text-[#6B6B6B]">
+              Rollo estándar de vinil: {ROLLO}m de ancho.
+            </p>
+          </div>
         </div>
 
         {/* Grupo */}
@@ -91,8 +155,6 @@ export default function VinilCalculator() {
               </button>
             ))}
           </div>
-
-          {/* Material */}
           <div className="flex flex-col gap-2 max-h-72 overflow-y-auto pr-1">
             {materialesFiltrados.map(m => (
               <button key={m.value} onClick={()=>setMat(m.value)}
@@ -102,11 +164,6 @@ export default function VinilCalculator() {
               </button>
             ))}
           </div>
-        </div>
-
-        <div className="flex items-start gap-2 bg-[#F5F5F5] px-3 py-3 rounded">
-          <Info size={13} className="text-[#CC0055] mt-0.5 shrink-0"/>
-          <p className="text-xs font-light text-[#6B6B6B]">El vinil se cobra por rollo de {ROLLO}m de ancho. El sistema elige automáticamente la orientación que optimiza el material.</p>
         </div>
       </div>
 
@@ -130,10 +187,35 @@ export default function VinilCalculator() {
                   <span className="text-white/40 font-light">Medida solicitada</span>
                   <span className="text-white font-light">{cal.w}m × {cal.h}m</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-white/40 font-light">Cobrado</span>
-                  <span className="text-[#CC0055] font-medium">{cal.rotada ? `${cal.tw.toFixed(2)}m × ${cal.th}m` : `${cal.tw.toFixed(2)}m × ${cal.h}m`}</span>
-                </div>
+
+                {cal.plan.numPaneles > 1 ? (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-white/40 font-light">Lienzos</span>
+                      <span className="text-amber-400 font-medium">{cal.plan.numPaneles} lienzos de {ROLLO}m</span>
+                    </div>
+                    {cal.plan.paneles.map((_,i) => (
+                      <div key={i} className="flex justify-between text-sm pl-3 border-l border-white/10">
+                        <span className="text-white/30 font-light">Lienzo {i+1}</span>
+                        <span className="text-white/60 font-light">
+                          {cal.plan.rotada ? `${cal.w}m × ${ROLLO}m` : `${ROLLO}m × ${cal.h}m`}
+                        </span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between text-sm">
+                      <span className="text-white/40 font-light">Medida visible final</span>
+                      <span className="text-white/60 font-light">{cal.anchoVisible}m × {cal.altoVisible}m</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-white/40 font-light">Cobrado</span>
+                    <span className="text-[#CC0055] font-medium">
+                      {cal.plan.rotada ? `${cal.plan.tw.toFixed(2)}m × ${cal.w}m` : `${cal.plan.tw.toFixed(2)}m × ${cal.h}m`}
+                    </span>
+                  </div>
+                )}
+
                 <div className="flex justify-between text-sm">
                   <span className="text-white/40 font-light">Área cobrada</span>
                   <span className="text-white font-light">{cal.area.toFixed(2)} m²</span>
