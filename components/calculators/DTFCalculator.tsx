@@ -3,12 +3,10 @@ import { useState, useMemo } from "react";
 import { formatMXN, IVA, ANTICIPO } from "@/lib/precios";
 import { Info, AlertCircle, ArrowRight, CheckCircle2 } from "lucide-react";
 
-const ANCHO_ROLLO = 0.58; // 58cm fijo
-
 const DTF_TIPOS = [
-  { id: "normal",   label: "DTF Normal",   desc: "Transfer estándar para textil",         precio: 180, porMetro: true,  minMetro: 1,   uvMode: false },
-  { id: "premium",  label: "DTF Premium",  desc: "Transfer de alta definición",            precio: 290, porMetro: true,  minMetro: 1,   uvMode: false },
-  { id: "uv",       label: "DTF UV",       desc: "Impresión directa UV — mínimo 0.5m",    precio: 600, porMetro: false, minMetro: 0.5, uvMode: true  },
+  { id: "normal",  label: "DTF Normal",  desc: "Transfer estándar para textil",       pxMetro: 180,  minMetro: 1,   uvMode: false },
+  { id: "premium", label: "DTF Premium", desc: "Transfer de alta definición",          pxMetro: 290,  minMetro: 1,   uvMode: false },
+  { id: "uv",      label: "DTF UV",      desc: "Mínimo medio metro",                   pxMetro: 600,  minMetro: 0.5, uvMode: true  },
 ];
 
 const PLANCHADO = [
@@ -18,18 +16,10 @@ const PLANCHADO = [
   { id: "eti", label: "Etiqueta", precio: 5  },
 ];
 
-function calcMetrosCobrados(metros: number, uvMode: boolean): number {
-  if (uvMode) {
-    // Mínimo 0.5m, fracciones desde 0.5m
-    if (metros <= 0) return 0;
-    if (metros <= 0.5) return 0.5;
-    return metros; // fracción exacta
-  } else {
-    // Mínimo 1m, menos de 1m se cobra como 1m
-    if (metros <= 0) return 0;
-    if (metros < 1) return 1;
-    return metros; // fracción exacta
-  }
+function metrosCobrados(m: number, uvMode: boolean): number {
+  if (m <= 0) return 0;
+  if (uvMode) return m < 0.5 ? 0.5 : m;
+  return m < 1 ? 1 : m;
 }
 
 export default function DTFCalculator() {
@@ -47,26 +37,20 @@ export default function DTFCalculator() {
     const qp = parseInt(qtyPl)    || 0;
     if (!m) return null;
 
-    const metrosCobrados = calcMetrosCobrados(m, t.uvMode);
-    const precioUnitario = t.uvMode
-      ? metrosCobrados <= 0.5 ? 300 : t.precio * metrosCobrados  // medio metro = $300, más = $600/m
-      : t.precio * metrosCobrados;
+    const mc   = metrosCobrados(m, t.uvMode);
+    // DTF UV: medio metro = $300 fijo, más de medio = $600 × metros
+    const unitDTF = t.uvMode
+      ? mc <= 0.5 ? 300 : t.pxMetro * mc
+      : t.pxMetro * mc;
 
-    const subDTF = precioUnitario * q;
+    const subDTF = unitDTF * q;
     const pl     = PLANCHADO.find(p => p.id === planchado);
     const subPl  = pl && qp > 0 ? pl.precio * qp : 0;
     const sub    = subDTF + subPl;
     const iva    = sub * IVA;
     const total  = sub + iva;
 
-    const redondeo = m !== metrosCobrados;
-
-    return {
-      m, metrosCobrados, q, precioUnitario, subDTF, subPl,
-      sub, iva, total, anticipo: total * ANTICIPO,
-      redondeo, pl,
-      areaCm: (ANCHO_ROLLO * metrosCobrados * 100).toFixed(1),
-    };
+    return { m, mc, q, unitDTF, subDTF, subPl, sub, iva, total, anticipo: total * ANTICIPO, pl, redondeo: m !== mc };
   }, [tipo, metros, qty, planchado, qtyPl, t]);
 
   return (
@@ -86,7 +70,7 @@ export default function DTFCalculator() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-medium text-[#CC0055] shrink-0">
-                    {d.uvMode ? `${formatMXN(300)}/0.5m · ${formatMXN(d.precio)}/m` : `${formatMXN(d.precio)}/m`}
+                    {d.uvMode ? `${formatMXN(300)}/0.5m · ${formatMXN(d.pxMetro)}/m` : `${formatMXN(d.pxMetro)}/m lineal`}
                   </span>
                   {tipo===d.id && <CheckCircle2 size={16} className="text-[#CC0055]"/>}
                 </div>
@@ -104,7 +88,7 @@ export default function DTFCalculator() {
               <div className="flex items-center border border-[#E0E0E0] rounded focus-within:border-[#CC0055] transition-colors">
                 <input type="number" value={metros} onChange={e=>setMetros(e.target.value)}
                   min={t.uvMode?"0.5":"0.1"} step="0.1"
-                  className="flex-1 px-4 py-3 text-base font-light outline-none bg-transparent w-20"/>
+                  className="flex-1 px-4 py-3 text-base font-light outline-none bg-transparent"/>
                 <span className="pr-3 text-sm text-[#6B6B6B]">m</span>
               </div>
             </div>
@@ -112,29 +96,25 @@ export default function DTFCalculator() {
               <label className="text-sm font-medium text-[#111] block mb-2">Cantidad</label>
               <div className="flex items-center border border-[#E0E0E0] rounded focus-within:border-[#CC0055] transition-colors">
                 <input type="number" value={qty} onChange={e=>setQty(e.target.value)} min="1" step="1"
-                  className="flex-1 px-4 py-3 text-base font-light outline-none bg-transparent w-20"/>
+                  className="flex-1 px-4 py-3 text-base font-light outline-none bg-transparent"/>
                 <span className="pr-3 text-sm text-[#6B6B6B]">pzas</span>
               </div>
             </div>
           </div>
 
-          {/* Info rollo */}
           <div className="mt-3 flex items-start gap-2 bg-[#F5F5F5] px-3 py-2.5 rounded">
             <Info size={13} className="text-[#CC0055] mt-0.5 shrink-0"/>
             <p className="text-xs font-light text-[#6B6B6B]">
-              Ancho de rollo fijo: <strong className="text-[#111]">{ANCHO_ROLLO*100}cm</strong>.{" "}
-              {t.uvMode
-                ? "Mínimo medio metro. Fracciones se cobran exactas desde 0.5m."
-                : "Mínimo 1 metro. Menos de 1m se cobra como metro completo."}
+              Ancho de rollo fijo: <strong className="text-[#111]">58cm</strong>.{" "}
+              {t.uvMode ? "Mínimo medio metro. Fracciones exactas desde 0.5m." : "Mínimo 1 metro. Menos de 1m se cobra como metro completo."}
             </p>
           </div>
 
-          {/* Aviso de redondeo */}
           {cal?.redondeo && (
             <div className="mt-2 flex items-start gap-2 bg-amber-50 border border-amber-200 px-3 py-2.5 rounded">
               <Info size={13} className="text-amber-500 mt-0.5 shrink-0"/>
               <p className="text-xs font-light text-amber-800">
-                {cal.m}m solicitado → se cobra <strong className="font-medium">{cal.metrosCobrados}m</strong> (mínimo).
+                {cal.m}m solicitado → se cobra <strong className="font-medium">{cal.mc}m</strong> (mínimo).
               </p>
             </div>
           )}
@@ -181,17 +161,13 @@ export default function DTFCalculator() {
                   <span className="text-white font-light">{t.label}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-white/40 font-light">Ancho rollo</span>
-                  <span className="text-white font-light">{ANCHO_ROLLO*100}cm</span>
-                </div>
-                <div className="flex justify-between text-sm">
                   <span className="text-white/40 font-light">Metros solicitados</span>
                   <span className="text-white font-light">{cal.m}m</span>
                 </div>
                 {cal.redondeo && (
                   <div className="flex justify-between text-sm">
                     <span className="text-white/40 font-light">Metros cobrados</span>
-                    <span className="text-[#CC0055] font-medium">{cal.metrosCobrados}m</span>
+                    <span className="text-[#CC0055] font-medium">{cal.mc}m</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
@@ -200,7 +176,7 @@ export default function DTFCalculator() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-white/40 font-light">Precio unitario</span>
-                  <span className="text-[#CC0055] font-medium">{formatMXN(cal.precioUnitario)}</span>
+                  <span className="text-[#CC0055] font-medium">{formatMXN(cal.unitDTF)}</span>
                 </div>
                 {cal.pl && cal.subPl > 0 && (
                   <div className="flex justify-between text-sm">
